@@ -14,6 +14,8 @@ import { AvailabilityExceptionModule } from './availability-exception/availabili
 import { AppointmentModule } from './appointment/appointment.module';
 import { AppointmentServiceModule } from './appointment-service/appointment-service.module';
 import { PaymentModule } from './payment/payment.module';
+import { AuthModule } from './auth/auth.module';
+import { CustomerModule } from './customer/customer.module';
 
 @Module({
   imports: [
@@ -43,7 +45,9 @@ import { PaymentModule } from './payment/payment.module';
     AvailabilityExceptionModule,
     AppointmentModule,
     AppointmentServiceModule,
-    PaymentModule
+    PaymentModule,
+    AuthModule,
+    CustomerModule
   ],
   controllers: [AppController],
   providers: [AppService],

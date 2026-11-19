@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { Staff } from '../staff/entities/staff.entity';
 import { Customer } from '../customer/entities/customer.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class AppointmentService {
@@ -28,9 +30,25 @@ export class AppointmentService {
     private readonly customerRepository: Repository<Customer>,
   ) {}
 
-  async create(dto: CreateAppointmentDto) {
+  async create(dto: CreateAppointmentDto, user: AuthenticatedUser) {
+    this.validateRole(user);
+
+    if (dto.businessId !== user.businessId) {
+      throw new ForbiddenException(
+        'You cannot create appointments for another business.',
+      );
+    }
+
+    const assignedStaff = await this.getAssignedStaff(user);
+
+    if (user.role === 'STAFF' && dto.staffId !== assignedStaff.staffId) {
+      throw new ForbiddenException(
+        'Staff can create appointments only for themselves.',
+      );
+    }
+
     await this.validateReferences(
-      dto.businessId,
+      user.businessId,
       dto.staffId,
       dto.customerId,
     );
@@ -39,6 +57,7 @@ export class AppointmentService {
 
     const appointment = this.appointmentRepository.create({
       ...dto,
+      businessId: user.businessId,
       customerId: dto.customerId ?? null,
       notes: dto.notes ?? null,
     });
@@ -46,8 +65,23 @@ export class AppointmentService {
     return this.appointmentRepository.save(appointment);
   }
 
-  async findAll() {
+  async findAll(user: AuthenticatedUser) {
+    this.validateRole(user);
+
+    const where: {
+      businessId: string;
+      staffId?: string;
+    } = {
+      businessId: user.businessId,
+    };
+
+    if (user.role === 'STAFF') {
+      const staff = await this.getAssignedStaff(user);
+      where.staffId = staff.staffId;
+    }
+
     return this.appointmentRepository.find({
+      where,
       order: {
         appointmentDate: 'ASC',
         startTime: 'ASC',
@@ -55,10 +89,24 @@ export class AppointmentService {
     });
   }
 
-  async findOne(id: string) {
-    const appointment = await this.appointmentRepository.findOneBy({
+  async findOne(id: string, user: AuthenticatedUser) {
+    this.validateRole(user);
+
+    const where: {
+      appointmentId: string;
+      businessId: string;
+      staffId?: string;
+    } = {
       appointmentId: id,
-    });
+      businessId: user.businessId,
+    };
+
+    if (user.role === 'STAFF') {
+      const staff = await this.getAssignedStaff(user);
+      where.staffId = staff.staffId;
+    }
+
+    const appointment = await this.appointmentRepository.findOneBy(where);
 
     if (!appointment) {
       throw new NotFoundException('Appointment not found.');
@@ -67,8 +115,25 @@ export class AppointmentService {
     return appointment;
   }
 
-  async update(id: string, dto: UpdateAppointmentDto) {
-    const appointment = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateAppointmentDto,
+    user: AuthenticatedUser,
+  ) {
+    const appointment = await this.findOne(id, user);
+
+    if (user.role === 'STAFF') {
+      if (
+        (dto.businessId !== undefined &&
+          dto.businessId !== user.businessId) ||
+        (dto.staffId !== undefined &&
+          dto.staffId !== appointment.staffId)
+      ) {
+        throw new ForbiddenException(
+          'Staff cannot change the appointment business or assigned staff member.',
+        );
+      }
+    }
 
     const businessId = dto.businessId ?? appointment.businessId;
     const staffId = dto.staffId ?? appointment.staffId;
@@ -76,6 +141,12 @@ export class AppointmentService {
       dto.customerId !== undefined
         ? dto.customerId
         : appointment.customerId;
+
+    if (businessId !== user.businessId) {
+      throw new ForbiddenException(
+        'You cannot move an appointment to another business.',
+      );
+    }
 
     await this.validateReferences(businessId, staffId, customerId);
 
@@ -89,14 +160,45 @@ export class AppointmentService {
     return this.appointmentRepository.save(appointment);
   }
 
-  async remove(id: string) {
-    const appointment = await this.findOne(id);
+  async remove(id: string, user: AuthenticatedUser) {
+    if (user.role === 'STAFF') {
+      throw new ForbiddenException(
+        'Staff members cannot delete appointments.',
+      );
+    }
+
+    const appointment = await this.findOne(id, user);
 
     await this.appointmentRepository.remove(appointment);
 
     return {
       message: 'Appointment deleted successfully.',
     };
+  }
+
+  private validateRole(user: AuthenticatedUser) {
+    if (!['OWNER', 'MANAGER', 'STAFF'].includes(user.role)) {
+      throw new ForbiddenException('Invalid business role.');
+    }
+  }
+
+  private async getAssignedStaff(user: AuthenticatedUser) {
+    const staff = await this.staffRepository.findOneBy({
+      membershipId: user.membershipId,
+      businessId: user.businessId,
+    });
+
+    if (!staff) {
+      throw new ForbiddenException(
+        'No staff profile is linked to this account.',
+      );
+    }
+
+    if (staff.employmentStatus !== 'ACTIVE') {
+      throw new ForbiddenException('Staff profile is inactive.');
+    }
+
+    return staff;
   }
 
   private async validateReferences(
@@ -120,9 +222,12 @@ export class AppointmentService {
       throw new NotFoundException('Staff member not found.');
     }
 
-    if (staff.businessId !== businessId) {
+    if (
+      staff.businessId !== businessId ||
+      staff.employmentStatus !== 'ACTIVE'
+    ) {
       throw new BadRequestException(
-        'Staff member does not belong to the selected business.',
+        'Staff member is inactive or does not belong to the selected business.',
       );
     }
 
