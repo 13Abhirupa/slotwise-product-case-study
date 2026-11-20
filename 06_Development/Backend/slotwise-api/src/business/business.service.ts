@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from './entities/business.entity';
-import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class BusinessService {
@@ -12,24 +16,26 @@ export class BusinessService {
     private readonly businessRepository: Repository<Business>,
   ) {}
 
-  async create(createBusinessDto: CreateBusinessDto): Promise<Business> {
-    const business = this.businessRepository.create(createBusinessDto);
-    return this.businessRepository.save(business);
-  }
-
-  async findAll(): Promise<Business[]> {
+  async findAll(user: AuthenticatedUser): Promise<Business[]> {
     return this.businessRepository.find({
-      order: { createdAt: 'DESC' },
+      where: { businessId: user.businessId },
     });
   }
 
-  async findOne(id: string): Promise<Business> {
+  async findOne(
+    id: string,
+    user: AuthenticatedUser,
+  ): Promise<Business> {
+    if (id !== user.businessId) {
+      throw new NotFoundException('Business not found.');
+    }
+
     const business = await this.businessRepository.findOneBy({
-      businessId: id,
+      businessId: user.businessId,
     });
 
     if (!business) {
-      throw new NotFoundException(`Business with ID ${id} not found.`);
+      throw new NotFoundException('Business not found.');
     }
 
     return business;
@@ -37,16 +43,30 @@ export class BusinessService {
 
   async update(
     id: string,
-    updateBusinessDto: UpdateBusinessDto,
+    dto: UpdateBusinessDto,
+    user: AuthenticatedUser,
   ): Promise<Business> {
-    const business = await this.findOne(id);
-    Object.assign(business, updateBusinessDto);
-    return this.businessRepository.save(business);
-  }
+    if (!['OWNER', 'MANAGER'].includes(user.role)) {
+      throw new ForbiddenException('Manager access required.');
+    }
 
-  async updateStatus(id: string, status: string): Promise<Business> {
-    const business = await this.findOne(id);
-    business.status = status;
+    const business = await this.findOne(id, user);
+
+    const allowedFields: (keyof UpdateBusinessDto)[] = [
+      'businessName',
+      'businessType',
+      'email',
+      'phone',
+      'address',
+      'timezone',
+    ];
+
+    for (const field of allowedFields) {
+      if (dto[field] !== undefined) {
+        (business as any)[field] = dto[field];
+      }
+    }
+
     return this.businessRepository.save(business);
   }
 }

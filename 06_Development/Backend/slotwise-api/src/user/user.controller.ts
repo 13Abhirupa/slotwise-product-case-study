@@ -1,71 +1,116 @@
 import {
-  Body,
   Controller,
+  ForbiddenException,
   Get,
+  Injectable,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
-  Patch,
-  Post,
+  UseGuards,
 } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
+import { BusinessMembership } from '../business-membership/entities/business-membership.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
-@ApiTags('User')
+const safeFields = {
+  userId: true,
+  fullName: true,
+  email: true,
+  accountStatus: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+@ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(BusinessMembership)
+    private readonly membershipRepository: Repository<BusinessMembership>,
+  ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiCreatedResponse({ description: 'User registered successfully.' })
-  create(
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<Omit<User, 'passwordHash'>> {
-    return this.userService.create(createUserDto);
+  @Get('me')
+  async me(@CurrentUser() currentUser: AuthenticatedUser) {
+    const user = await this.userRepository.findOne({
+      where: { userId: currentUser.userId },
+      select: safeFields,
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return user;
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all users' })
-  @ApiOkResponse({ description: 'Users retrieved successfully.' })
-  findAll(): Promise<Omit<User, 'passwordHash'>[]> {
-    return this.userService.findAll();
+  async findAll(@CurrentUser() currentUser: AuthenticatedUser) {
+    if (!['OWNER', 'MANAGER'].includes(currentUser.role)) {
+      throw new ForbiddenException('Manager access required.');
+    }
+
+    const memberships = await this.membershipRepository.find({
+      where: {
+        businessId: currentUser.businessId,
+        membershipStatus: 'ACTIVE',
+      },
+      select: { userId: true },
+    });
+
+    const userIds = [...new Set(memberships.map(m => m.userId))];
+
+    if (!userIds.length) {
+      return [];
+    }
+
+    return this.userRepository.find({
+      where: { userId: In(userIds) },
+      select: safeFields,
+      order: { fullName: 'ASC' },
+    });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get user details by ID' })
-  @ApiOkResponse({ description: 'User details retrieved successfully.' })
-  findOne(
+  async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<Omit<User, 'passwordHash'>> {
-    return this.userService.findOne(id);
-  }
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    if (id !== currentUser.userId) {
+      if (!['OWNER', 'MANAGER'].includes(currentUser.role)) {
+        throw new NotFoundException('User not found.');
+      }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update user details' })
-  @ApiOkResponse({ description: 'User updated successfully.' })
-  update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ): Promise<Omit<User, 'passwordHash'>> {
-    return this.userService.update(id, updateUserDto);
-  }
+      const membership = await this.membershipRepository.findOne({
+        where: {
+          userId: id,
+          businessId: currentUser.businessId,
+          membershipStatus: 'ACTIVE',
+        },
+      });
 
-  @Patch(':id/status')
-  @ApiOperation({ summary: 'Update user account status' })
-  @ApiOkResponse({ description: 'User status updated successfully.' })
-  updateStatus(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateUserStatusDto: UpdateUserStatusDto,
-  ): Promise<Omit<User, 'passwordHash'>> {
-    return this.userService.updateStatus(id, updateUserStatusDto);
+      if (!membership) {
+        throw new NotFoundException('User not found.');
+      }
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { userId: id },
+      select: safeFields,
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return user;
   }
 }

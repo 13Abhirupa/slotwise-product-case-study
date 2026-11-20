@@ -1,3 +1,5 @@
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import {
   Body,
   Controller,
@@ -21,6 +23,8 @@ export class StaffServiceController {
     private readonly staffServiceService: StaffServiceService,
   ) {}
 
+  @Roles('OWNER', 'MANAGER')
+
   @Post()
   @ApiOperation({ summary: 'Assign a service to a staff member' })
   create(@Body() createDto: CreateStaffServiceDto) {
@@ -39,9 +43,13 @@ export class StaffServiceController {
     return this.staffServiceService.findOne(id);
   }
 
+  @Roles('OWNER', 'MANAGER')
+
   @Delete(':id')
   @ApiOperation({ summary: 'Remove a service assignment from staff' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.staffServiceService.remove(id);
   }
 }
+
+

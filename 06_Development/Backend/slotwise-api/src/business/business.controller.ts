@@ -1,71 +1,70 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
-  Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
-  ApiCreatedResponse,
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
-import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
-import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
 import { Business } from './entities/business.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Business')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('business')
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new business' })
-  @ApiCreatedResponse({ description: 'Business created successfully.' })
-  create(@Body() createBusinessDto: CreateBusinessDto): Promise<Business> {
-    return this.businessService.create(createBusinessDto);
-  }
-
   @Get()
-  @ApiOperation({ summary: 'Get all businesses' })
-  @ApiOkResponse({ description: 'List of businesses.' })
-  findAll(): Promise<Business[]> {
-    return this.businessService.findAll();
+  @ApiOperation({ summary: 'Get authenticated business' })
+  @ApiOkResponse({ description: 'Authenticated business details.' })
+  findAll(@CurrentUser() user: AuthenticatedUser): Promise<Business[]> {
+    return this.businessService.findAll(user);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get business details by ID' })
+  @ApiOperation({ summary: 'Get own business by ID' })
   @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Business details.' })
-  findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<Business> {
-    return this.businessService.findOne(id);
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Business> {
+    return this.businessService.findOne(id, user);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update business information' })
-  @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Business updated successfully.' })
+  @Roles('OWNER', 'MANAGER')
+  @ApiOperation({ summary: 'Update own business information' })
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateBusinessDto: UpdateBusinessDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Business> {
-    return this.businessService.update(id, updateBusinessDto);
+    return this.businessService.update(id, updateBusinessDto, user);
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Update business status' })
-  @ApiParam({ name: 'id', description: 'Business UUID' })
-  @ApiOkResponse({ description: 'Business status updated successfully.' })
-  updateStatus(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateStatusDto: UpdateBusinessStatusDto,
-  ): Promise<Business> {
-    return this.businessService.updateStatus(id, updateStatusDto.status);
+  @Roles('OWNER')
+  @ApiOperation({ summary: 'Update own business status (OWNER only)' })
+  updateStatus(): never {
+    throw new ForbiddenException(
+      'Business status changes are disabled in the MVP.',
+    );
   }
 }

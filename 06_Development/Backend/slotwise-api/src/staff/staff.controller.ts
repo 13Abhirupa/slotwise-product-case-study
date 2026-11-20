@@ -1,59 +1,85 @@
 import {
-  Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
-  Patch,
-  Post,
+  UseGuards,
 } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { StaffService } from './staff.service';
-import { CreateStaffDto } from './dto/create-staff.dto';
-import { UpdateStaffDto } from './dto/update-staff.dto';
-import { UpdateStaffStatusDto } from './dto/update-staff-status.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Repository } from 'typeorm';
+import { Staff } from './entities/staff.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Staff')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('staff')
 export class StaffController {
-  constructor(private readonly staffService: StaffService) {}
+  constructor(
+    @InjectRepository(Staff)
+    private readonly staffRepository: Repository<Staff>,
+  ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a staff member' })
-  create(@Body() createDto: CreateStaffDto) {
-    return this.staffService.create(createDto);
+  @Get('me')
+  async me(@CurrentUser() user: AuthenticatedUser) {
+    const staff = await this.staffRepository.findOne({
+      where: {
+        membershipId: user.membershipId,
+        businessId: user.businessId,
+      },
+    });
+
+    if (!staff) {
+      throw new NotFoundException('Staff profile not found.');
+    }
+
+    return staff;
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all staff members' })
-  findAll() {
-    return this.staffService.findAll();
+  async findAll(@CurrentUser() user: AuthenticatedUser) {
+    if (['OWNER', 'MANAGER'].includes(user.role)) {
+      return this.staffRepository.find({
+        where: { businessId: user.businessId },
+      });
+    }
+
+    return this.staffRepository.find({
+      where: {
+        membershipId: user.membershipId,
+        businessId: user.businessId,
+      },
+    });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a staff member by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.staffService.findOne(id);
-  }
-
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update staff details' })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateDto: UpdateStaffDto,
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.staffService.update(id, updateDto);
-  }
+    const where: {
+      staffId: string;
+      businessId: string;
+      membershipId?: string;
+    } = {
+      staffId: id,
+      businessId: user.businessId,
+    };
 
-  @Patch(':id/status')
-  @ApiOperation({ summary: 'Update staff employment status' })
-  updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateDto: UpdateStaffStatusDto,
-  ) {
-    return this.staffService.updateStatus(id, updateDto);
+    if (!['OWNER', 'MANAGER'].includes(user.role)) {
+      where.membershipId = user.membershipId;
+    }
+
+    const staff = await this.staffRepository.findOne({ where });
+
+    if (!staff) {
+      throw new NotFoundException('Staff profile not found.');
+    }
+
+    return staff;
   }
 }

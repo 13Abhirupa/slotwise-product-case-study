@@ -1,73 +1,95 @@
 import {
-  Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
-  Patch,
-  Post,
+  UseGuards,
 } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
-import { BusinessMembershipService } from './business-membership.service';
-import { CreateBusinessMembershipDto } from './dto/create-business-membership.dto';
-import { UpdateBusinessMembershipDto } from './dto/update-business-membership.dto';
-import { UpdateBusinessMembershipStatusDto } from './dto/update-business-membership-status.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Repository } from 'typeorm';
 import { BusinessMembership } from './entities/business-membership.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('Business Membership')
-@Controller('business-memberships')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('business-membership')
 export class BusinessMembershipController {
   constructor(
-    private readonly membershipService: BusinessMembershipService,
+    @InjectRepository(BusinessMembership)
+    private readonly membershipRepository: Repository<BusinessMembership>,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Add a user to a business' })
-  @ApiCreatedResponse({ description: 'Membership created successfully.' })
-  create(
-    @Body() createDto: CreateBusinessMembershipDto,
-  ): Promise<BusinessMembership> {
-    return this.membershipService.create(createDto);
+  @Get('me')
+  async me(@CurrentUser() user: AuthenticatedUser) {
+    const membership = await this.membershipRepository.findOne({
+      where: {
+        membershipId: user.membershipId,
+        userId: user.userId,
+        businessId: user.businessId,
+        membershipStatus: 'ACTIVE',
+      },
+      select: {
+        membershipId: true,
+        userId: true,
+        businessId: true,
+        role: true,
+        membershipStatus: true,
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Membership not found.');
+    }
+
+    return membership;
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all business memberships' })
-  @ApiOkResponse({ description: 'Memberships retrieved successfully.' })
-  findAll(): Promise<BusinessMembership[]> {
-    return this.membershipService.findAll();
+  @Roles('OWNER', 'MANAGER')
+  async findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.membershipRepository.find({
+      where: { businessId: user.businessId },
+      select: {
+        membershipId: true,
+        userId: true,
+        businessId: true,
+        role: true,
+        membershipStatus: true,
+      },
+    });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get membership details by ID' })
-  @ApiOkResponse({ description: 'Membership retrieved successfully.' })
-  findOne(
+  @Roles('OWNER', 'MANAGER')
+  async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<BusinessMembership> {
-    return this.membershipService.findOne(id);
-  }
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const membership = await this.membershipRepository.findOne({
+      where: {
+        membershipId: id,
+        businessId: user.businessId,
+      },
+      select: {
+        membershipId: true,
+        userId: true,
+        businessId: true,
+        role: true,
+        membershipStatus: true,
+      },
+    });
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update membership role' })
-  @ApiOkResponse({ description: 'Membership updated successfully.' })
-  update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateDto: UpdateBusinessMembershipDto,
-  ): Promise<BusinessMembership> {
-    return this.membershipService.update(id, updateDto);
-  }
+    if (!membership) {
+      throw new NotFoundException('Membership not found.');
+    }
 
-  @Patch(':id/status')
-  @ApiOperation({ summary: 'Update membership status' })
-  @ApiOkResponse({ description: 'Membership status updated successfully.' })
-  updateStatus(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateDto: UpdateBusinessMembershipStatusDto,
-  ): Promise<BusinessMembership> {
-    return this.membershipService.updateStatus(id, updateDto);
+    return membership;
   }
 }
