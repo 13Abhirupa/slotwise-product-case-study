@@ -1,0 +1,124 @@
+﻿<section class="page-header">
+  <div>
+    <h1>Service Management</h1>
+    <p>View salon services, durations, prices and availability status.</p>
+  </div>
+  <button class="primary-btn" (click)="loadServices()">Refresh Services</button>
+</section>
+
+<section class="service-summary">
+  <div class="summary-card">
+    <span>Total Services</span>
+    <strong>{{ services().length }}</strong>
+  </div>
+  <div class="summary-card">
+    <span>Active Services</span>
+    <strong>{{ activeCount() }}</strong>
+  </div>
+</section>
+
+<section class="service-panel">
+  <div class="toolbar">
+    <input
+      type="search"
+      placeholder="Search services..."
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+
+    <select
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option value="ALL">All Services</option>
+      <option value="ACTIVE">Active</option>
+      <option value="INACTIVE">Inactive</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <p class="feedback">Loading services...</p>
+  }
+
+  @if (error()) {
+    <p class="error-message">{{ error() }}</p>
+  }
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl No.</th>
+          <th>Service Name</th>
+          <th>Duration</th>
+          <th>Price</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (service of filteredServices(); track service.serviceId; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ serviceName(service) }}</td>
+            <td>{{ duration(service) }}</td>
+            <td>{{ price(service) }}</td>
+            <td>
+              <span
+                class="status"
+                [class.active]="serviceStatus(service) === 'ACTIVE'"
+              >
+                {{ serviceStatus(service) }}
+              </span>
+            </td>
+            <td>
+              <button class="link-btn" (click)="viewService(service)">
+                View
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty">No matching services found.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selectedService(); as service) {
+  <div class="modal-backdrop" (click)="closeDetails()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Service Details</h2>
+        <button type="button" (click)="closeDetails()" aria-label="Close">×</button>
+      </div>
+
+      <div class="detail">
+        <span>Service Name</span>
+        <strong>{{ serviceName(service) }}</strong>
+      </div>
+      <div class="detail">
+        <span>Description</span>
+        <strong>{{ service.description || '—' }}</strong>
+      </div>
+      <div class="detail">
+        <span>Duration</span>
+        <strong>{{ duration(service) }}</strong>
+      </div>
+      <div class="detail">
+        <span>Price</span>
+        <strong>{{ price(service) }}</strong>
+      </div>
+      <div class="detail">
+        <span>Status</span>
+        <strong>{{ serviceStatus(service) }}</strong>
+      </div>
+
+      <div class="modal-actions">
+        <button class="primary-btn" (click)="closeDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+}

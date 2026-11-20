@@ -1,0 +1,51 @@
+<section class="page-heading">
+  <div>
+    <h1>Dashboard Overview</h1>
+    <p>Manage your salon operations from one workspace.</p>
+  </div>
+  <a class="primary-button" href="/appointments">+ New Appointment</a>
+</section>
+
+@if (loading()) {
+  <p>Loading dashboard data...</p>
+}
+
+@if (error()) {
+  <div class="panel">
+    <p>{{ error() }}</p>
+    <button (click)="loadDashboard()">Retry</button>
+  </div>
+}
+
+<section class="stats-grid">
+  <div class="stat-card">
+    <span>Total Appointments</span>
+    <strong>{{ totalAppointments() ?? '—' }}</strong>
+    <small>Appointments in your business</small>
+  </div>
+
+  <div class="stat-card">
+    <span>Today's Appointments</span>
+    <strong>{{ todayAppointments() ?? '—' }}</strong>
+    <small>Scheduled for today</small>
+  </div>
+
+  <div class="stat-card">
+    <span>Active Staff</span>
+    <strong>{{ activeStaff() ?? '—' }}</strong>
+    <small>Active team members</small>
+  </div>
+
+  <div class="stat-card">
+    <span>Total Customers</span>
+    <strong>{{ totalCustomers() ?? '—' }}</strong>
+    <small>Registered customers</small>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Appointment Summary</h2>
+  <p>
+    {{ totalAppointments() ?? '—' }} appointments retrieved from the SlotWise backend.
+  </p>
+</section>

@@ -1,0 +1,130 @@
+﻿<section class="page-header">
+  <div>
+    <h1>Staff Management</h1>
+    <p>View team members and their employment status.</p>
+  </div>
+
+  <button class="primary-btn" (click)="loadStaff()">
+    Refresh Staff
+  </button>
+</section>
+
+<section class="staff-summary">
+  <div class="summary-card">
+    <span>Total Staff</span>
+    <strong>{{ staff().length }}</strong>
+  </div>
+
+  <div class="summary-card">
+    <span>Active Staff</span>
+    <strong>{{ activeCount() }}</strong>
+  </div>
+</section>
+
+<section class="staff-panel">
+  <div class="toolbar">
+    <input
+      type="search"
+      placeholder="Search by name, phone or email"
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+
+    <select
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option value="ALL">All Staff</option>
+      <option value="ACTIVE">Active</option>
+      <option value="INACTIVE">Inactive</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <p class="feedback">Loading staff...</p>
+  }
+
+  @if (error()) {
+    <p class="error-message">{{ error() }}</p>
+  }
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl No.</th>
+          <th>Staff Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Employment Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (member of filteredStaff(); track member.staffId; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ member.fullName }}</td>
+            <td>{{ member.phone || '—' }}</td>
+            <td>{{ member.email || '—' }}</td>
+            <td>
+              <span
+                class="status"
+                [class.active]="member.employmentStatus === 'ACTIVE'"
+              >
+                {{ member.employmentStatus }}
+              </span>
+            </td>
+            <td>
+              <button class="link-btn" (click)="viewStaff(member)">
+                View
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty">
+              No matching staff members found.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selectedStaff(); as member) {
+  <div class="modal-backdrop" (click)="closeDetails()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Staff Details</h2>
+        <button (click)="closeDetails()" aria-label="Close">×</button>
+      </div>
+
+      <div class="detail">
+        <span>Full Name</span>
+        <strong>{{ member.fullName }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Phone</span>
+        <strong>{{ member.phone || '—' }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Email</span>
+        <strong>{{ member.email || '—' }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Employment Status</span>
+        <strong>{{ member.employmentStatus }}</strong>
+      </div>
+
+      <div class="modal-actions">
+        <button class="primary-btn" (click)="closeDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+}

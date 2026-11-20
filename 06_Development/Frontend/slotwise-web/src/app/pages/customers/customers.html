@@ -1,0 +1,92 @@
+<section class="page-header">
+  <div>
+    <h1>Customer Management</h1>
+    <p>View and manage your salon's customer records.</p>
+  </div>
+  <button class="primary-btn" (click)="loadCustomers()">Refresh</button>
+</section>
+
+<section class="customer-panel">
+  <div class="toolbar">
+    <input
+      type="search"
+      placeholder="Search by customer name, phone or email"
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+    <span>{{ filteredCustomers().length }} customers</span>
+  </div>
+
+  @if (loading()) {
+    <p class="feedback">Loading customers...</p>
+  }
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl No.</th>
+          <th>Customer Name</th>
+          <th>Phone Number</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (customer of filteredCustomers(); track customer.customerId; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ name(customer) }}</td>
+            <td>{{ phone(customer) }}</td>
+            <td>{{ email(customer) }}</td>
+            <td>
+              <button class="link-btn" (click)="viewCustomer(customer)">
+                View
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="empty">
+              No matching customers found.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selectedCustomer(); as customer) {
+  <div class="modal-backdrop" (click)="closeDetails()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Customer Details</h2>
+        <button (click)="closeDetails()" aria-label="Close">×</button>
+      </div>
+
+      <div class="detail">
+        <span>Customer Name</span>
+        <strong>{{ name(customer) }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Phone Number</span>
+        <strong>{{ phone(customer) }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Email</span>
+        <strong>{{ email(customer) }}</strong>
+      </div>
+
+      <div class="actions">
+        <button class="primary-btn" (click)="closeDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+}

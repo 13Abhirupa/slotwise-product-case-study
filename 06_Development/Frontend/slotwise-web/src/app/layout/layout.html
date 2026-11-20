@@ -1,0 +1,44 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">S</span>
+      <div>
+        <strong>SlotWise</strong>
+        <small>Salon Management</small>
+      </div>
+    </div>
+
+    <div class="nav-label">WORKSPACE</div>
+
+    <nav>
+      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/appointments" routerLinkActive="active">Appointments</a>
+      <a routerLink="/customers" routerLinkActive="active">Customers</a>
+      <a routerLink="/staff" routerLinkActive="active">Staff</a>
+      <a routerLink="/services" routerLinkActive="active">Services</a>
+      <a routerLink="/availability" routerLinkActive="active">Availability</a>
+      <a routerLink="/settings" routerLinkActive="active">Settings</a>
+    <button class="logout-btn" (click)="auth.logout()">Sign Out</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <strong>SlotWise Workspace</strong>
+      <small>Development environment</small>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="breadcrumb">Workspace / Salon Management</div>
+      <div class="profile">
+        <span class="avatar">SW</span>
+        <span>Admin Workspace</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+

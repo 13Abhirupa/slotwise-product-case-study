@@ -1,0 +1,158 @@
+﻿<section class="page-header">
+  <div>
+    <h1>Staff Availability</h1>
+    <p>Monitor working schedules, leave and availability exceptions.</p>
+  </div>
+
+  <button class="primary-btn" (click)="loadAvailability()">
+    Refresh
+  </button>
+</section>
+
+@if (loading()) {
+  <p class="feedback">Loading availability...</p>
+}
+
+@if (error()) {
+  <p class="error-message">{{ error() }}</p>
+}
+
+<section class="availability-panel">
+  <div class="toolbar">
+    <label for="staffFilter">Select Staff</label>
+
+    <select
+      id="staffFilter"
+      [ngModel]="selectedStaffId()"
+      (ngModelChange)="selectedStaffId.set($event)"
+    >
+      <option value="ALL">All Staff</option>
+
+      @for (member of staff(); track member.staffId) {
+        <option [value]="member.staffId">
+          {{ member.fullName }}
+        </option>
+      }
+    </select>
+  </div>
+</section>
+
+<section class="availability-panel">
+  <div class="section-heading">
+    <h2>Weekly Working Schedule</h2>
+    <span>{{ filteredSchedules().length }} records</span>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl No.</th>
+          <th>Staff Name</th>
+          <th>Day</th>
+          <th>Start Time</th>
+          <th>End Time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (schedule of filteredSchedules(); track $index; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ staffName(schedule.staffId) }}</td>
+            <td>{{ dayName(schedule.dayOfWeek) }}</td>
+            <td>{{ time(schedule.startTime) }}</td>
+            <td>{{ time(schedule.endTime) }}</td>
+            <td>
+              <button class="link-btn" (click)="selectedSchedule.set(schedule)">
+                View
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty">
+              No working schedules found.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="availability-panel">
+  <div class="section-heading">
+    <h2>Leave & Availability Exceptions</h2>
+    <span>{{ filteredExceptions().length }} records</span>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Sl No.</th>
+          <th>Staff Name</th>
+          <th>Date</th>
+          <th>Exception Type</th>
+          <th>Reason</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (exception of filteredExceptions(); track $index; let i = $index) {
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ staffName(exception.staffId) }}</td>
+            <td>{{ exceptionDate(exception) }}</td>
+            <td>{{ exceptionType(exception) }}</td>
+            <td>{{ exception.reason || exception.notes || '—' }}</td>
+            <td>
+              <button class="link-btn" (click)="selectedException.set(exception)">
+                View
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty">
+              No availability exceptions found.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selectedSchedule(); as schedule) {
+  <div class="modal-backdrop" (click)="closeDetails()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h2>Working Schedule Details</h2>
+
+      <p><strong>Staff:</strong> {{ staffName(schedule.staffId) }}</p>
+      <p><strong>Day:</strong> {{ dayName(schedule.dayOfWeek) }}</p>
+      <p><strong>Start:</strong> {{ time(schedule.startTime) }}</p>
+      <p><strong>End:</strong> {{ time(schedule.endTime) }}</p>
+
+      <button class="primary-btn" (click)="closeDetails()">Close</button>
+    </div>
+  </div>
+}
+
+@if (selectedException(); as exception) {
+  <div class="modal-backdrop" (click)="closeDetails()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h2>Availability Exception Details</h2>
+
+      <p><strong>Staff:</strong> {{ staffName(exception.staffId) }}</p>
+      <p><strong>Date:</strong> {{ exceptionDate(exception) }}</p>
+      <p><strong>Type:</strong> {{ exceptionType(exception) }}</p>
+      <p><strong>Reason:</strong> {{ exception.reason || exception.notes || '—' }}</p>
+
+      <button class="primary-btn" (click)="closeDetails()">Close</button>
+    </div>
+  </div>
+}

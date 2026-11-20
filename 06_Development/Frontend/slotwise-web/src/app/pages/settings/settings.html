@@ -1,0 +1,136 @@
+﻿<section class="page-header">
+  <div>
+    <h1>Settings</h1>
+    <p>Manage your business profile and account information.</p>
+  </div>
+
+  <button class="secondary-btn" (click)="loadSettings()">
+    Refresh
+  </button>
+</section>
+
+@if (loading()) {
+  <p class="feedback">Loading settings...</p>
+}
+
+@if (error()) {
+  <p class="error-message">{{ error() }}</p>
+}
+
+@if (success()) {
+  <p class="success-message">{{ success() }}</p>
+}
+
+<section class="settings-grid">
+  <div class="settings-card">
+    <div class="card-heading">
+      <div>
+        <h2>Business Profile</h2>
+        <p>Your registered SlotWise business</p>
+      </div>
+
+      @if (business()) {
+        <button class="primary-btn" (click)="openEdit()">
+          Edit Profile
+        </button>
+      }
+    </div>
+
+    @if (business(); as b) {
+      <div class="detail">
+        <span>Business Name</span>
+        <strong>{{ b.businessName }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Business Status</span>
+        <strong>{{ b.status }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Business ID</span>
+        <strong class="identifier">{{ b.businessId }}</strong>
+      </div>
+    } @else if (!loading()) {
+      <p class="feedback">Business information unavailable.</p>
+    }
+  </div>
+
+  <div class="settings-card">
+    <div class="card-heading">
+      <div>
+        <h2>Account Information</h2>
+        <p>Your authenticated SlotWise account</p>
+      </div>
+    </div>
+
+    @if (currentUser(); as user) {
+      <div class="detail">
+        <span>Full Name</span>
+        <strong>{{ user.fullName }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Email</span>
+        <strong>{{ user.email }}</strong>
+      </div>
+
+      <div class="detail">
+        <span>Account Role</span>
+        <strong>{{ user.role }}</strong>
+      </div>
+    }
+  </div>
+</section>
+
+@if (editing()) {
+  <div class="modal-backdrop" (click)="closeEdit()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Edit Business Profile</h2>
+        <button type="button" (click)="closeEdit()" aria-label="Close">
+          ×
+        </button>
+      </div>
+
+      <form #businessForm="ngForm" (ngSubmit)="saveBusiness()">
+        <label for="businessName">Business Name *</label>
+        <input
+          id="businessName"
+          name="businessName"
+          [(ngModel)]="form.businessName"
+          required
+          maxlength="150"
+        />
+
+        <label for="businessStatus">Business Status</label>
+        <select
+          id="businessStatus"
+          name="status"
+          [(ngModel)]="form.status"
+        >
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive</option>
+        </select>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="closeEdit()"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="businessForm.invalid || saving()"
+          >
+            {{ saving() ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

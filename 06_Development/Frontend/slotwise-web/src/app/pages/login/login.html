@@ -1,0 +1,42 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="logo">S</div>
+
+    <h1>Welcome to SlotWise</h1>
+    <p>Sign in to manage your salon workspace.</p>
+
+    <form (ngSubmit)="login()">
+      <label for="email">Email Address</label>
+      <input
+        id="email"
+        type="email"
+        name="email"
+        [(ngModel)]="email"
+        placeholder="Enter your email"
+        autocomplete="username"
+        required
+      />
+
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        name="password"
+        [(ngModel)]="password"
+        placeholder="Enter your password"
+        autocomplete="current-password"
+        required
+      />
+
+      @if (error()) {
+        <div class="error">{{ error() }}</div>
+      }
+
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Signing in...' : 'Sign In' }}
+      </button>
+    </form>
+
+    <div class="footer">SlotWise Salon Management</div>
+  </div>
+</div>
